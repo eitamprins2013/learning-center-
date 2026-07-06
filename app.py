@@ -51,7 +51,7 @@ c.execute('''
 ''')
 conn.commit()
 
-# --- שדרוג אוטומטי ובטוח של בסיס הנתונים למניעת קריסות ווינדוס ---
+# --- שדרוג אוטומטי ובטוח של בסיס הנתונים למניעת קריסות ---
 try:
     c.execute("SELECT reg_type FROM registrations LIMIT 1")
 except sqlite3.OperationalError:
@@ -72,7 +72,7 @@ if 'logged_in' not in st.session_state:
 
 st.title("🏫 מערכת ניהול מרכז למידה")
 
-# --- מסך התחברות / יצירת חשבון ---
+# --- מסך התחברות / יצירת חשבון (החזרנו את המקורי שעבד!) ---
 if not st.session_state['logged_in']:
     auth_mode = st.radio("בחר פעולה:", ["התחברות", "יצירת חשבון חדש"])
     username = st.text_input("שם משתמש:")
@@ -109,6 +109,14 @@ if not st.session_state['logged_in']:
 # --- מסכים לאחר התחברות ---
 else:
     st.sidebar.write(f"👋 מחובר בתור: **{st.session_state['username']}**")
+    
+    # הנה התיקון: כפתור סודי בסרגל הצד שרק מי שמקליד 1975 מקבל הרשאות מורה, בלי קשר לאיך הוא נרשם!
+    st.sidebar.write("---")
+    teacher_override = st.sidebar.text_input("קוד גישה למנהל (מורה):", type="password")
+    if teacher_override == "1975":
+        st.session_state['role'] = 'teacher'
+        st.sidebar.success("🔓 מצב מורה מופעל!")
+
     if st.sidebar.button("התנתק מהחשבון"):
         st.session_state.clear()
         st.rerun()
@@ -164,7 +172,8 @@ else:
         st.header("🎓 אזור אישי לתלמיד")
 
         c.execute("SELECT credits FROM users WHERE username=?", (st.session_state['username'],))
-        current_credits = c.fetchone()[0]
+        user_credits_row = c.fetchone()
+        current_credits = user_credits_row[0] if user_credits_row else 0
 
         st.metric(label="💳 יתרת כניסות בכרטיסייה שלך:", value=f"{current_credits} כניסות")
 
