@@ -72,28 +72,41 @@ if 'logged_in' not in st.session_state:
 
 st.title("🏫 מערכת ניהול מרכז למידה")
 
-# --- מסך התחברות / יצירת חשבון (החזרנו את המקורי שעבד!) ---
+# --- מסך כניסה: התחברות, יצירת חשבון תלמיד, או התחברות מורים סודית ---
 if not st.session_state['logged_in']:
-    auth_mode = st.radio("בחר פעולה:", ["התחברות", "יצירת חשבון חדש"])
-    username = st.text_input("שם משתמש:")
-    password = st.text_input("סיסמה:", type="password")
+    auth_mode = st.radio("בחר פעולה:", ["התחברות", "יצירת חשבון תלמיד חדש", "התחברות מורים"])
 
-    if auth_mode == "יצירת חשבון חדש":
-        role = st.selectbox("סוג חשבון:", ["תלמיד", "מורה"])
+    if auth_mode == "התחברות מורים":
+        st.subheader("🔑 כניסת צוות ניהול")
+        teacher_code = st.text_input("הכנס קוד גישה למורים:", type="password")
+        if st.button("כנס להיכל המורים", type="primary"):
+            if teacher_code == "1975":
+                st.session_state['logged_in'] = True
+                st.session_state['username'] = "מורה אחראי"
+                st.session_state['role'] = "teacher"
+                st.success("ברוך הבא להיכל המורים!")
+                st.rerun()
+            else:
+                st.error("קוד גישה שגוי. הגישה חסומה.")
+
+    elif auth_mode == "יצירת חשבון תלמיד חדש":
+        username = st.text_input("שם משתמש:")
+        password = st.text_input("סיסמה:", type="password")
         if st.button("הרשם למערכת"):
             if username.strip() == "" or password.strip() == "":
                 st.error("נא למלא את כל השדות.")
             else:
-                role_db = "teacher" if role == "מורה" else "student"
                 try:
                     c.execute("INSERT INTO users (username, password, role, credits) VALUES (?, ?, ?, ?)",
-                              (username, password, role_db, 0))
+                              (username, password, "student", 0))
                     conn.commit()
                     st.success("החשבון נוצר בהצלחה! עבור למסך התחברות.")
                 except sqlite3.IntegrityError:
                     st.error("שם המשתמש כבר קיים במערכת.")
 
     elif auth_mode == "התחברות":
+        username = st.text_input("שם משתמש:")
+        password = st.text_input("סיסמה:", type="password")
         if st.button("התחבר"):
             c.execute("SELECT password, role FROM users WHERE username=?", (username,))
             user = c.fetchone()
@@ -109,14 +122,6 @@ if not st.session_state['logged_in']:
 # --- מסכים לאחר התחברות ---
 else:
     st.sidebar.write(f"👋 מחובר בתור: **{st.session_state['username']}**")
-    
-    # הנה התיקון: כפתור סודי בסרגל הצד שרק מי שמקליד 1975 מקבל הרשאות מורה, בלי קשר לאיך הוא נרשם!
-    st.sidebar.write("---")
-    teacher_override = st.sidebar.text_input("קוד גישה למנהל (מורה):", type="password")
-    if teacher_override == "1975":
-        st.session_state['role'] = 'teacher'
-        st.sidebar.success("🔓 מצב מורה מופעל!")
-
     if st.sidebar.button("התנתק מהחשבון"):
         st.session_state.clear()
         st.rerun()
