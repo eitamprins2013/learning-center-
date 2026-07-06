@@ -18,7 +18,7 @@ db_file = 'learning_center.db'
 conn = sqlite3.connect(db_file, check_same_thread=False)
 c = conn.cursor()
 
-# יצירת טבלת משתמשים
+# יצירת טבלת משתמשים (נשמרת לתלמידים)
 c.execute('''
     CREATE TABLE IF NOT EXISTS users (
         username TEXT PRIMARY KEY,
@@ -68,26 +68,24 @@ except sqlite3.OperationalError:
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
     st.session_state['username'] = ""
-    st.session_state['role'] = ""
+    st.session_state['role'] = "student" # כולם מתחילים כתלמיד כברירת מחדל
 
 st.title("🏫 מערכת ניהול מרכז למידה")
 
-# --- מסך התחברות / יצירת חשבון ---
+# --- מסך התחברות / יצירת חשבון תלמיד בלבד ---
 if not st.session_state['logged_in']:
-    auth_mode = st.radio("בחר פעולה:", ["התחברות", "יצירת חשבון חדש"])
+    auth_mode = st.radio("בחר פעולה:", ["התחברות למערכת", "יצירת חשבון תלמיד חדש"])
     username = st.text_input("שם משתמש:")
     password = st.text_input("סיסמה:", type="password")
 
-    if auth_mode == "יצירת חשבון חדש":
-        role = st.selectbox("סוג חשבון:", ["תלמיד", "מורה"])
+    if auth_mode == "יצירת חשבון תלמיד חדש":
         if st.button("הרשם למערכת"):
             if username.strip() == "" or password.strip() == "":
                 st.error("נא למלא את כל השדות.")
             else:
-                role_db = "teacher" if role == "מורה" else "student"
                 try:
                     c.execute("INSERT INTO users (username, password, role, credits) VALUES (?, ?, ?, ?)",
-                              (username, password, role_db, 0))
+                              (username, password, "student", 0))
                     conn.commit()
                     st.success("החשבון נוצר בהצלחה! עבור למסך התחברות.")
                 except sqlite3.IntegrityError:
@@ -100,7 +98,7 @@ if not st.session_state['logged_in']:
             if user and user[0] == password:
                 st.session_state['logged_in'] = True
                 st.session_state['username'] = username
-                st.session_state['role'] = user[1]
+                st.session_state['role'] = "student" # כניסה ראשונית תמיד כתלמיד
                 st.success(f"ברוך הבא, {username}!")
                 st.rerun()
             else:
@@ -109,16 +107,28 @@ if not st.session_state['logged_in']:
 # --- מסכים לאחר התחברות ---
 else:
     st.sidebar.write(f"👋 מחובר בתור: **{st.session_state['username']}**")
+    
+    # אזור כניסת מורים סודית בסרגל הצד
+    st.sidebar.write("---")
+    st.sidebar.subheader("🔐 כניסת מורים")
+    teacher_code = st.sidebar.text_input("הכנס קוד גישה למורים:", type="password")
+    
+    if teacher_code == "1975":
+        st.session_state['role'] = 'teacher'
+        st.sidebar.success("🔓 מצב מורה פעיל!")
+    else:
+        st.session_state['role'] = 'student'
+
     if st.sidebar.button("התנתק מהחשבון"):
         st.session_state.clear()
         st.rerun()
 
-    # --- ממשק מורה ---
+    # --- ממשק מורה (נפתח רק עם הקוד 1975) ---
     if st.session_state['role'] == 'teacher':
-        st.header("⚙️ לוח ניהול למורה")
+        st.header("⚙️ לוח ניהול למורה - היכל המורים")
 
         st.subheader("💳 חידוש כרטיסיות (תשלום ב-Bit)")
-        c.execute("SELECT username, credits FROM users WHERE role='student'")
+        c.execute("SELECT username, credits FROM users")
         students = c.fetchall()
         if students:
             student_list = {f"{row[0]} (יתרה נוכחית: {row[1]} כניסות)": row[0] for row in students}
@@ -159,7 +169,7 @@ else:
         else:
             st.info("אין עדיין תלמידים רשומים.")
 
-    # --- ממשק תלמיד ---
+    # --- ממשק תלמיד (ברירת מחדל לכולם) ---
     else:
         st.header("🎓 אזור אישי לתלמיד")
 
